@@ -1,0 +1,43 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+.venv*/
+venv/
+env/
+
+# Serialized Model Artifacts (Track via DVC or Git LFS if needed)
+models/*.joblib
+models/*.pkl
+models/*.bin
+!models/.gitkeep
+
+# Data files (Preserve raw and processed data outside Git)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Heavy generated tables
+reports/shap_values.csv
+
+# Secrets & environment variables
+.env
+.env.*
+*.pem
+*.key
+*.token
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

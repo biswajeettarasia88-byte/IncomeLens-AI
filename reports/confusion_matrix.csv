@@ -1,0 +1,3 @@
+,predicted_<=50K,predicted_>50K
+actual_<=50K,7080,417
+actual_>50K,870,1404
