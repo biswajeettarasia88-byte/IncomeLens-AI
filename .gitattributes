@@ -19,6 +19,9 @@
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 
+# Git LFS tracking for production model artifact
+models/random_forest_final.joblib filter=lfs diff=lfs merge=lfs -text
+
 # Binary files
 *.png binary
 *.jpg binary

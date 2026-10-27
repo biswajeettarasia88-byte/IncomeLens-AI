@@ -11,11 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from incomelens.data import load_test_data, load_train_data, load_validation_data
-from incomelens.preprocessing import (
+from incomelens.data import (
     CATEGORICAL_FEATURES,
     NUMERIC_FEATURES,
     TARGET_COLUMN,
+    TRAIN_DATA_PATH,
+    VALIDATION_DATA_PATH,
+    TEST_DATA_PATH,
+    load_test_data,
+    load_train_data,
+    load_validation_data,
+)
+from incomelens.preprocessing import (
     build_preprocessor,
     extract_features,
     get_feature_names,
@@ -25,6 +32,8 @@ from incomelens.preprocessing import (
 
 @pytest.fixture(scope="module")
 def train_features():
+    if not TRAIN_DATA_PATH.is_file():
+        pytest.skip("Training split data/processed/train.csv not found on disk.")
     train_df = load_train_data()
     X, y = split_features_target(train_df)
     return X, y
@@ -64,6 +73,8 @@ def test_build_preprocessor_structure():
 
 def test_train_only_fitting_and_transformation(fitted_preprocessor):
     """Verify preprocessor fitted on train transforms validation and test without refitting."""
+    if not VALIDATION_DATA_PATH.is_file() or not TEST_DATA_PATH.is_file():
+        pytest.skip("Validation or test split not found on disk.")
     val_df = load_validation_data()
     test_df = load_test_data()
 
@@ -239,8 +250,8 @@ def test_extract_features_schema_mismatch():
 def test_production_model_pipeline_compatibility():
     """Verify the production model pipeline works seamlessly with raw features."""
     prod_model_path = ROOT / "models" / "random_forest_final.joblib"
-    if not prod_model_path.exists():
-        pytest.skip("Production model not found on disk.")
+    if not prod_model_path.exists() or not TEST_DATA_PATH.is_file():
+        pytest.skip("Production model or test data not found on disk.")
 
     model = joblib.load(prod_model_path)
     test_df = load_test_data()

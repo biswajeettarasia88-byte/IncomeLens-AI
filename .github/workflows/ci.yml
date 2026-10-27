@@ -12,8 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout code (with Git LFS)
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,9 +32,24 @@ jobs:
         run: |
           pip check
 
-      - name: Run offline test suite
+      - name: Verify canonical datasets and LFS model artifact
         run: |
-          python -m pytest tests/test_preprocessing.py tests/test_evaluation.py tests/test_fairness.py tests/test_feature_importance.py -v
+          test -f data/processed/train.csv || (echo "Missing train.csv" && exit 1)
+          test -f data/processed/validation.csv || (echo "Missing validation.csv" && exit 1)
+          test -f data/processed/test.csv || (echo "Missing test.csv" && exit 1)
+          test -f models/random_forest_final.joblib || (echo "Missing model artifact" && exit 1)
+          
+          # Verify the model file is the real binary artifact (> 10MB), not an unresolved LFS pointer
+          filesize=$(stat -c%s "models/random_forest_final.joblib" 2>/dev/null || stat -f%z "models/random_forest_final.joblib")
+          if [ "$filesize" -lt 10000000 ]; then
+            echo "Error: models/random_forest_final.joblib is an unresolved LFS pointer ($filesize bytes)"
+            exit 1
+          fi
+          echo "Verified model artifact: $filesize bytes"
+
+      - name: Run complete test suite (158 tests)
+        run: |
+          python -m pytest tests -v
 
   frontend:
     name: Frontend Build & Typecheck

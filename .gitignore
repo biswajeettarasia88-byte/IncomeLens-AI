@@ -19,17 +19,21 @@ venv/
 env/
 ENV/
 
-# Serialized Model Artifacts (Track via Git LFS if committed)
+# Serialized Model Artifacts (Track production model via Git LFS)
 models/*.joblib
 models/*.pkl
 models/*.bin
 !models/.gitkeep
+!models/random_forest_final.joblib
 
-# Data files (Preserve raw and processed datasets outside Git)
+# Data files (Preserve raw and intermediate data outside Git, track canonical splits)
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/train.csv
+!data/processed/validation.csv
+!data/processed/test.csv
 
 # Heavy generated tables (>50MB or reproducible)
 reports/shap_values.csv
