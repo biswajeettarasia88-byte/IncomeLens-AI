@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_version": "1.0.0",
+  "project_name": "incomelens-ai",
+  "evaluation_timestamp": "2026-10-26T15:59:14.145650+00:00",
+  "random_seeds": {
+    "holdout_split_seed": 42,
+    "validation_split_seed": 43,
+    "model_estimator_seed": 42,
+    "shap_sample_seed": 42
+  },
+  "source_control": {
+    "git_commit": "19698cddfa4f283320edd59f70836c2601954b49",
+    "git_branch": "master",
+    "is_dirty": true
+  },
+  "runtime_environment": {
+    "python_version": "3.14.7",
+    "python_implementation": "CPython",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "architecture": [
+      "64bit",
+      "WindowsPE"
+    ],
+    "dependencies": {
+      "scikit-learn": "1.9.0",
+      "pandas": "2.3.3",
+      "numpy": "2.3.4",
+      "joblib": "1.5.3",
+      "shap": "0.52.0",
+      "matplotlib": "3.10.7",
+      "streamlit": "1.64.0",
+      "pytest": "9.1.1"
+    }
+  },
+  "model_artifact": {
+    "relative_path": "models/random_forest_final.joblib",
+    "size_bytes": 50084507,
+    "sha256": "f164a61183466b25186377e8946f4cb74b2df924f69e50224f5d8de72858a285",
+    "model_class": "Pipeline",
+    "pipeline_steps": [
+      {
+        "name": "preprocessor",
+        "class": "ColumnTransformer",
+        "module": "sklearn.compose._column_transformer",
+        "parameters": {
+          "n_jobs": null
+        },
+        "n_features_out": 105
+      },
+      {
+        "name": "classifier",
+        "class": "RandomForestClassifier",
+        "module": "sklearn.ensemble._forest",
+        "parameters": {
+          "n_estimators": 150,
+          "min_samples_leaf": 2,
+          "random_state": 42,
+          "n_jobs": -1,
+          "criterion": "gini",
+          "max_depth": null
+        },
+        "classes": [
+          "0",
+          "1"
+        ]
+      }
+    ]
+  },
+  "datasets": {
+    "raw_adult": {
+      "relative_path": "data/raw/adult.csv",
+      "sha256": "689758510d7df19dd35ddf1849a75be3081a4ab80b8def7db822846947968ee8",
+      "rows": 48842,
+      "columns": 15
+    },
+    "processed_cleaned": {
+      "relative_path": "data/processed/adult_cleaned.csv",
+      "sha256": "5db73ef7941b3eaf4afb274e6ece6ac4c2bc8178f1809d99222c1288ffe08fd9",
+      "rows": 48842,
+      "columns": 15
+    },
+    "train_split": {
+      "relative_path": "data/processed/train.csv",
+      "sha256": "d0d8ff5b9ad7fc6b9b3cceeffa61040a29d2034b8c64f2d5c3e59b9cb6f63345",
+      "rows": 29301,
+      "columns": 15
+    },
+    "validation_split": {
+      "relative_path": "data/processed/validation.csv",
+      "sha256": "1c2823f51bbe7559cb9e299b86cadcf4276393a7a73554fe343d25060e7f43e8",
+      "rows": 9770,
+      "columns": 15
+    },
+    "test_split": {
+      "relative_path": "data/processed/test.csv",
+      "sha256": "9dacf0ead60a15dfa534f12b1f6ca507bf83ff75a4659f5b0061d0437119ca15",
+      "rows": 9771,
+      "columns": 15
+    }
+  },
+  "test_evaluation_metrics": {
+    "split": "held_out_test",
+    "sample_count": 9771,
+    "positive_class": ">50K",
+    "metrics": {
+      "accuracy": 0.8683,
+      "balanced_accuracy": 0.7809,
+      "precision_high_income": 0.771,
+      "recall_high_income": 0.6174,
+      "f1_high_income": 0.6857,
+      "roc_auc": 0.9181
+    },
+    "confusion_matrix": {
+      "actual_<=50K_predicted_<=50K": 7080,
+      "actual_<=50K_predicted_>50K": 417,
+      "actual_>50K_predicted_<=50K": 870,
+      "actual_>50K_predicted_>50K": 1404
+    }
+  },
+  "generated_artifacts": {
+    "final_test_metrics_csv": {
+      "relative_path": "reports/final_test_metrics.csv",
+      "sha256": "4f8810aa34805ac0fa1da2bc3b01332209c57aa1dc15c500e367f4cf7586d7b9",
+      "size_bytes": 205
+    },
+    "confusion_matrix_csv": {
+      "relative_path": "reports/confusion_matrix.csv",
+      "sha256": "503774bb62c05eb0e1ba540c17ed84ffc8c93745b71d3c096cd6b8574e1e36d8",
+      "size_bytes": 78
+    },
+    "feature_importance_csv": {
+      "relative_path": "reports/feature_importance.csv",
+      "sha256": "7fb8584f547470984af4a0f291c52ed0d99f45c808ed12190946204b2dd2a403",
+      "size_bytes": 6054
+    },
+    "feature_importance_figure": {
+      "relative_path": "reports/figures/feature_importance.png",
+      "sha256": "8bbd686cbfa5e79afbebc662ab73f21af8ebfccaf13eb581736836a345aff6d9",
+      "size_bytes": 293175,
+      "resolution_dpi": 300
+    },
+    "shap_values_csv": {
+      "relative_path": "reports/shap_values.csv",
+      "sha256": "14c1cb0a6e3f8b0ef07069ca8ceb68ce1f3d16f3b885c8e09c58a0e5fdc181d8",
+      "size_bytes": 2341543
+    },
+    "shap_summary_figure": {
+      "relative_path": "reports/figures/shap_summary.png",
+      "sha256": "1e5320cbe784dc79f08eea0aea70840837856cdfe43c83e53c4cafeba0afbfbd",
+      "size_bytes": 405527,
+      "resolution_dpi": 300
+    },
+    "fairness_metrics_csv": {
+      "relative_path": "reports/fairness_metrics.csv",
+      "sha256": "0f40dae6b06e8e875482335f0ef93d887ef58f07d15d65c302ccdce7c0f8d870",
+      "size_bytes": 2406
+    },
+    "grouped_validation_comparison_csv": {
+      "relative_path": "reports/grouped_validation_comparison.csv",
+      "sha256": "958462c38115d0f4f16cbc4869101d63bb418738e21c54f45715d919d9c640c2",
+      "size_bytes": 291
+    }
+  }
+}

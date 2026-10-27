@@ -1,0 +1,16 @@
+{
+  "analysis": "final_evaluation",
+  "model_artifact": "D:\\incomelens-ai\\models\\random_forest_final.joblib",
+  "model_type": "RandomForestClassifier",
+  "data_split": "data/processed/test.csv",
+  "sample_count": 9771,
+  "positive_class": ">50K",
+  "metrics": {
+    "accuracy": 0.868283696653362,
+    "balanced_accuracy": 0.7808959995607743,
+    "precision_high_income": 0.771004942339374,
+    "recall_high_income": 0.6174142480211082,
+    "f1_high_income": 0.6857142857142857,
+    "roc_auc": 0.9180519759941502
+  }
+}

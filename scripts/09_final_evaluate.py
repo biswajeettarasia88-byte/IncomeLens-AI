@@ -1,127 +1,102 @@
-
+import json
 from pathlib import Path
 import sys
 
 import joblib
 import pandas as pd
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    balanced_accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.pipeline import Pipeline
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from incomelens.preprocessing import (
-    build_preprocessor,
-    split_features_target,
+from incomelens.data import load_test_data
+from incomelens.evaluation import (
+    NEGATIVE_LABEL_STR,
+    POSITIVE_CLASS_INT,
+    POSITIVE_LABEL_STR,
+    evaluate_predictions,
+    get_positive_class_index,
 )
+from incomelens.preprocessing import split_features_target
+
+MODEL_PATH = ROOT / "models" / "random_forest_final.joblib"
+REPORT_DIR = ROOT / "reports"
 
 
 def main():
-    data_dir = ROOT / "data" / "processed"
-    model_dir = ROOT / "models"
-    report_dir = ROOT / "reports"
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    model_dir.mkdir(exist_ok=True)
-    report_dir.mkdir(exist_ok=True)
+    if not MODEL_PATH.is_file():
+        raise FileNotFoundError(
+            f"Production model not found at '{MODEL_PATH}'. "
+            "Please ensure the model is trained before running final evaluation."
+        )
 
-    train_df = pd.read_csv(data_dir / "train.csv")
-    val_df = pd.read_csv(data_dir / "validation.csv")
-    test_df = pd.read_csv(data_dir / "test.csv")
+    print(f"Loading trained production model: {MODEL_PATH}")
+    model = joblib.load(MODEL_PATH)
 
-    # Fit on training + validation, never on test.
-    development_df = pd.concat(
-        [train_df, val_df],
-        ignore_index=True,
+    print("Loading held-out test split (data/processed/test.csv)...")
+    test_df = load_test_data()
+
+    X_test, y_test = split_features_target(test_df)
+    print(f"Test instances: {len(X_test)}")
+
+    # Validate probability column selection using model.classes_
+    pos_idx = get_positive_class_index(
+        model.classes_, positive_class=POSITIVE_CLASS_INT
     )
 
-    X_dev, y_dev = split_features_target(development_df)
-    X_test, y_test = split_features_target(test_df)
-
-    model = Pipeline([
-        ("preprocessor", build_preprocessor()),
-        (
-            "classifier",
-            RandomForestClassifier(
-                n_estimators=150,
-                min_samples_leaf=2,
-                random_state=42,
-                n_jobs=-1,
-            ),
-        ),
-    ])
-
-    print("Training final selected model...")
-    model.fit(X_dev, y_dev)
-
+    print("Generating predictions and class probabilities on test set...")
     predictions = model.predict(X_test)
-    probabilities = model.predict_proba(X_test)[:, 1]
+    probabilities = model.predict_proba(X_test)[:, pos_idx]
 
-    metrics = {
-        "accuracy": accuracy_score(y_test, predictions),
-        "balanced_accuracy": balanced_accuracy_score(
-            y_test, predictions
-        ),
-        "precision_high_income": precision_score(
-            y_test, predictions, zero_division=0
-        ),
-        "recall_high_income": recall_score(
-            y_test, predictions, zero_division=0
-        ),
-        "f1_high_income": f1_score(
-            y_test, predictions, zero_division=0
-        ),
-        "roc_auc": roc_auc_score(y_test, probabilities),
-    }
+    metrics, cm_df, report_str = evaluate_predictions(
+        y_true=y_test,
+        y_pred=predictions,
+        y_prob=probabilities,
+        positive_class=POSITIVE_CLASS_INT,
+    )
 
     print("\n--- FINAL TEST RESULTS ---")
     for name, value in metrics.items():
         print(f"{name}: {value:.4f}")
 
     print("\nClassification report:")
-    print(classification_report(
-        y_test,
-        predictions,
-        labels=[0, 1],
-        target_names=["<=50K", ">50K"],
-        zero_division=0,
-    ))
+    print(report_str)
 
-    matrix = confusion_matrix(
-        y_test, predictions, labels=[0, 1]
-    )
     print("Confusion matrix (rows=actual, columns=predicted):")
-    print(matrix)
+    print(cm_df)
 
-    pd.DataFrame(
-        matrix,
-        index=["actual_<=50K", "actual_>50K"],
-        columns=["predicted_<=50K", "predicted_>50K"],
-    ).to_csv(report_dir / "confusion_matrix.csv")
+    # Save evaluation reports (does NOT touch model binary)
+    cm_path = REPORT_DIR / "confusion_matrix.csv"
+    metrics_path = REPORT_DIR / "final_test_metrics.csv"
+    manifest_path = REPORT_DIR / "evaluation_manifest.json"
 
-    pd.DataFrame([metrics]).to_csv(
-        report_dir / "final_test_metrics.csv",
-        index=False,
-    )
+    cm_df.to_csv(cm_path)
+    pd.DataFrame([metrics]).to_csv(metrics_path, index=False)
 
-    joblib.dump(
-        model,
-        model_dir / "random_forest_final.joblib",
-    )
+    # Record model artifact and data split used
+    manifest = {
+        "analysis": "final_evaluation",
+        "model_artifact": str(MODEL_PATH),
+        "model_type": type(model.named_steps.get("classifier", model)).__name__ if hasattr(model, "named_steps") else type(model).__name__,
+        "data_split": "data/processed/test.csv",
+        "sample_count": len(X_test),
+        "positive_class": POSITIVE_LABEL_STR,
+        "metrics": metrics,
+    }
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
 
-    print("\nSaved model: models/random_forest_final.joblib")
-    print("Saved metrics: reports/final_test_metrics.csv")
-    print("Final test evaluation completed.")
+    # Post-execution verification of all generated artifacts
+    for artifact in [cm_path, metrics_path, manifest_path]:
+        if not artifact.is_file() or artifact.stat().st_size == 0:
+            raise RuntimeError(f"Generated evaluation artifact is missing or empty: {artifact}")
+
+    print(f"\nSaved confusion matrix: {cm_path}")
+    print(f"Saved metrics: {metrics_path}")
+    print(f"Saved manifest: {manifest_path}")
+    print("Verified: All evaluation artifacts generated and non-empty.")
+    print("Final test evaluation completed successfully without model retraining.")
 
 
 if __name__ == "__main__":

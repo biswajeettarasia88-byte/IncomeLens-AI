@@ -1,4 +1,7 @@
+"""Preprocessing pipelines and feature transformations for IncomeLens AI."""
 
+import logging
+from typing import List, Tuple
 import pandas as pd
 
 from sklearn.compose import ColumnTransformer
@@ -6,6 +9,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+logger = logging.getLogger(__name__)
 
 TARGET_COLUMN = "income"
 
@@ -30,9 +34,20 @@ CATEGORICAL_FEATURES = [
 ]
 
 
-def build_preprocessor():
-    """Create a preprocessing pipeline for mixed-type census data."""
+def build_preprocessor(sparse_output: bool = True) -> ColumnTransformer:
+    """Create a preprocessing pipeline for mixed-type census data.
 
+    Parameters
+    ----------
+    sparse_output : bool, default=True
+        Whether the OneHotEncoder should return a sparse matrix.
+        Matches the production model pipeline configuration.
+
+    Returns
+    -------
+    ColumnTransformer
+        Unfitted ColumnTransformer with numerical and categorical sub-pipelines.
+    """
     numeric_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="median")),
@@ -47,7 +62,7 @@ def build_preprocessor():
                 "onehot",
                 OneHotEncoder(
                     handle_unknown="ignore",
-                    sparse_output=True,
+                    sparse_output=sparse_output,
                 ),
             ),
         ]
@@ -62,22 +77,103 @@ def build_preprocessor():
     )
 
 
-def split_features_target(df: pd.DataFrame):
-    """Separate predictors from the binary income target."""
+def extract_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Extract and validate the required feature matrix for inference or evaluation.
 
-    df = df.copy()
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with census features.
 
-    # Prevent the target from entering the model inputs
-    y = df[TARGET_COLUMN].str.strip()
-    y = y.map({"<=50K": 0, ">50K": 1})
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing only the expected feature columns in canonical order.
 
-    if y.isna().any():
-        raise ValueError("Unexpected or missing income labels.")
+    Raises
+    ------
+    TypeError
+        If df is not a pandas DataFrame.
+    ValueError
+        If df is missing any required feature columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(f"Expected pandas DataFrame, got {type(df).__name__}")
 
-    X = df.drop(columns=[TARGET_COLUMN])
-
-    # Retain only the explicitly defined predictors
     expected = NUMERIC_FEATURES + CATEGORICAL_FEATURES
-    X = X[expected]
+    missing = [col for col in expected if col not in df.columns]
+    if missing:
+        raise ValueError(
+            f"DataFrame is missing required feature columns: {missing}. Expected: {expected}"
+        )
 
-    return X, y.astype(int)
+    return df[expected].copy()
+
+
+def split_features_target(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+    """Separate predictors from the binary income target.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame containing predictors and the target column.
+
+    Returns
+    -------
+    X : pd.DataFrame
+        Feature matrix containing NUMERIC_FEATURES + CATEGORICAL_FEATURES.
+    y : pd.Series
+        Binary integer labels (0 for <=50K, 1 for >50K).
+
+    Raises
+    ------
+    ValueError
+        If target column is missing, or contains unmappable / null values.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(f"Expected pandas DataFrame, got {type(df).__name__}")
+
+    if TARGET_COLUMN not in df.columns:
+        raise ValueError(f"Target column '{TARGET_COLUMN}' not found in DataFrame.")
+
+    target_series = df[TARGET_COLUMN]
+
+    # Support pre-encoded integer/boolean targets
+    if pd.api.types.is_numeric_dtype(target_series):
+        unique_vals = set(target_series.dropna().unique())
+        if not unique_vals.issubset({0, 1}):
+            raise ValueError(f"Unexpected numeric income labels: {unique_vals}")
+        if target_series.isna().any():
+            raise ValueError("Target column contains missing values.")
+        y = target_series.astype(int)
+    else:
+        # String labels: strip whitespace and trailing dots (e.g. '<=50K.' -> '<=50K')
+        y_str = target_series.astype(str).str.strip().str.rstrip(".")
+        y = y_str.map({"<=50K": 0, ">50K": 1})
+
+        if y.isna().any():
+            invalid = set(target_series[y.isna()].unique())
+            raise ValueError(f"Unexpected or missing income labels: {invalid}")
+        y = y.astype(int)
+
+    X = extract_features(df)
+    return X, y
+
+
+def get_feature_names(preprocessor: ColumnTransformer) -> List[str]:
+    """Extract output feature names from a fitted ColumnTransformer.
+
+    Parameters
+    ----------
+    preprocessor : ColumnTransformer
+        Fitted ColumnTransformer.
+
+    Returns
+    -------
+    list of str
+        Names of all output features after transformation.
+    """
+    try:
+        return [str(name) for name in preprocessor.get_feature_names_out()]
+    except Exception as e:
+        raise ValueError(f"Could not extract feature names from preprocessor: {e}") from e
